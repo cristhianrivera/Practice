@@ -103,22 +103,91 @@ A.add(B, fill_value=fill)
 
 
 
+################################# Iris dataset
+import seaborn as sns
+iris = sns.load_dataset('iris')
+iris.head()
+
+#%matplotlib inline
+import seaborn as sns; sns.set()
+sns.pairplot(iris, hue='species', size=2.5);
+
+X_iris = iris.drop('species', axis=1)
+y_iris = iris['species']
 
 
 
+##########################Simple linear regression with scipy
+import matplotlib.pyplot as plt
+import numpy as np
+
+rng = np.random.RandomState(42)
+x = 10 * rng.rand(50)
+y = 2 * x - 1 + rng.randn(50)
+
+plt.figure(figsize=(5,5))
+plt.scatter(x, y);
 
 
+from sklearn.linear_model import LinearRegression
+model = LinearRegression(fit_intercept=True)
 
 
+#modify the x array to have the a consistent shape
+X = x[:, np.newaxis]
+Y = y[:, np.newaxis] #it still works for y
+
+#apply the model to the data
+model.fit(X,y)
+
+##make some predictions 
+xfit = np.linspace(-1, 11, num = 50)
+Xfit = xfit[:, np.newaxis]
+yfit = model.predict(Xfit)
+
+##visualize predictions vs real
+plt.scatter(x, y)
+plt.plot(xfit, yfit);
+
+#################Naive bayes
+
+from sklearn.model_selection import train_test_split
+Xtrain, Xtest, ytrain, ytest = train_test_split(X_iris, y_iris,
+                                                random_state=1)
+
+from sklearn.naive_bayes import GaussianNB # 1. choose model class
+model = GaussianNB()                       # 2. instantiate model
+model.fit(Xtrain, ytrain)                  # 3. fit model to data
+y_model = model.predict(Xtest)             # 4. predict on new data
+
+from sklearn.metrics import accuracy_score
+accuracy_score(ytest, y_model)
 
 
+###PCA
+from sklearn.decomposition import PCA  # 1. Choose the model class
+model = PCA(n_components=2)            # 2. Instantiate the model with hyperparameters
+model.fit(X_iris)                      # 3. Fit to data. Notice y is not specified!
+X_2D = model.transform(X_iris)         # 4. Transform the data to two dimensions
+
+iris['PCA1'] = X_2D[:, 0]
+iris['PCA2'] = X_2D[:, 1]
+sns.lmplot("PCA1", "PCA2", hue='species', data=iris, fit_reg=False);
 
 
+####### gaussian misture models
+from sklearn.mixture import GaussianMixture      # 1. Choose the model class
+model = GaussianMixture(n_components=3,
+            covariance_type='full')  # 2. Instantiate the model with hyperparameters
+model.fit(X_iris)                    # 3. Fit to data. Notice y is not specified!
+y_gmm = model.predict(X_iris)  
 
+iris['cluster'] = y_gmm
+sns.lmplot("PCA1", "PCA2", data=iris, hue='species',
+           col='cluster', fit_reg=False);
 
-
-
-
+           
+           
 
 
 
