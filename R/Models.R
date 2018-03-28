@@ -240,3 +240,4 @@ nobs(mod)
 
 
 
+#dplyr::filter(InterviewData,grepl("java", tolower(InterviewData$Nature.of.Skillset)) )
