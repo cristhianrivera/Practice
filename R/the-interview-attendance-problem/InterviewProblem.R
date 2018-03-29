@@ -1,9 +1,9 @@
-
+library("modelr")
 library("dplyr")
 library("ggplot2")
 library("InformationValue")
 
-setwd("C:/Users/a688291/Documents/EDA_CRJR/the-interview-attendance-problem")
+setwd("C:/Users/a688291/Documents/EDA_CRJR/")
 
 InterviewData <- read.csv("Interview.csv")
 InterviewData <- as.data.frame(InterviewData)
@@ -19,8 +19,10 @@ byAttendance <- InterviewData%>%
   summarise(count = n())%>%
   mutate(Freq = count / sum(count))
 
-ggplot(byAttendance, aes(x = "", y = Freq, fill = Observed.Attendance))+
-  geom_bar(stat="identity")
+ggplot(byAttendance, aes(x = "Output", y = Freq, fill = Observed.Attendance))+
+  geom_bar(stat="identity")+
+  geom_text(aes(label = round(Freq, 2)), position = position_stack(vjust = 0.5))
+  
 
 
 #by location
@@ -197,17 +199,6 @@ sum(WOETable(InterviewData$Position.to.be.closed, InterviewData$Observed.Attenda
 WOETable(InterviewData$Location, InterviewData$Observed.AttendanceOI)#NO
 
 
-##########################Split the data for training and testing purposes
-smp_size <- floor(0.75 * nrow(mtcars))
-
-## set the seed to make your partition reproductible
-set.seed(123)
-train_ind <- sample(seq_len(nrow(mtcars)), size = smp_size)
-
-train <- mtcars[train_ind, ]
-test <- mtcars[-train_ind, ]
-
-
 ##########First version of the model, just to have a benchmark with one variable
 MOD1_InterviewData <- InterviewData%>%
   select(Observed.AttendanceOI,ExpectedAttendanceIO)%>%
@@ -229,10 +220,15 @@ confusionMatrix(MOD1_InterviewData$Observed.AttendanceOI, MOD1_InterviewData$pre
 
 
 ##########Second version of the model
+
+
 MOD2_InterviewData <- InterviewData%>%
   select(Observed.AttendanceOI,ExpectedAttendanceIO,SkillsetGroup )%>%
   filter(is.na(ExpectedAttendanceIO)== FALSE)%>%
   filter(is.na(SkillsetGroup)== FALSE)
+
+MOD2_InterviewData$ExpectedAttendanceIO <- as.factor(MOD2_InterviewData$ExpectedAttendanceIO)
+MOD2_InterviewData$SkillsetGroup <- as.factor(MOD2_InterviewData$SkillsetGroup)
 
 mod2 <- glm(Observed.AttendanceOI ~ ExpectedAttendanceIO + SkillsetGroup, 
             data = MOD2_InterviewData, 
@@ -240,18 +236,51 @@ mod2 <- glm(Observed.AttendanceOI ~ ExpectedAttendanceIO + SkillsetGroup,
 
 summary(mod2)
 
+dfPredict <- select(MOD2_InterviewData, ExpectedAttendanceIO, SkillsetGroup)
 
-dfPredict <- filter(MOD2_InterviewData, ExpectedAttendanceIO, SkillsetGroup)
 
 MOD2_InterviewData <- MOD2_InterviewData%>%
-  mutate(prediction = predict(mod1, dfPredict , type="response"))
+  mutate(prediction = predict(mod2, dfPredict, type = "response"))
 
-optCutOff <- optimalCutoff(MOD1_InterviewData$Observed.AttendanceOI, MOD1_InterviewData$prediction)[1] 
+optCutOff <- optimalCutoff(MOD1_InterviewData$Observed.AttendanceOI, MOD2_InterviewData$prediction)[1] 
 
-plotROC(MOD1_InterviewData$Observed.AttendanceOI, MOD1_InterviewData$prediction)
-confusionMatrix(MOD1_InterviewData$Observed.AttendanceOI, MOD1_InterviewData$prediction, threshold = optCutOff)
+plotROC(MOD2_InterviewData$Observed.AttendanceOI, MOD2_InterviewData$prediction)
+confusionMatrix(MOD2_InterviewData$Observed.AttendanceOI, MOD2_InterviewData$prediction, threshold = optCutOff)
 
-add_predictions
+
+##########Third version of the model (with all the variables that we considered "good")
+
+
+MOD_InterviewData <- InterviewData%>%
+  select(Observed.AttendanceOI,ExpectedAttendanceIO,SkillsetGroup, Industry )%>%
+  filter(is.na(ExpectedAttendanceIO)== FALSE)%>%
+  filter(is.na(SkillsetGroup)== FALSE)%>%
+  filter(is.na(Industry)== FALSE)
+
+MOD_InterviewData$ExpectedAttendanceIO <- as.factor(MOD_InterviewData$ExpectedAttendanceIO)
+MOD_InterviewData$SkillsetGroup <- as.factor(MOD_InterviewData$SkillsetGroup)
+MOD_InterviewData$Industry <- as.factor(MOD_InterviewData$Industry)
+
+mod_fine <- glm(Observed.AttendanceOI ~ ExpectedAttendanceIO + SkillsetGroup + Industry, 
+            data = MOD_InterviewData, 
+            family = binomial("logit"))
+
+summary(mod_fine)
+
+dfPredict <- select(MOD_InterviewData, ExpectedAttendanceIO, SkillsetGroup, Industry)
+#dfPredict %>% add_predictions(mod2)
+
+MOD_InterviewData <- MOD_InterviewData%>%
+  mutate(prediction = predict(mod_fine, dfPredict, type = "response"))
+
+optCutOff <- optimalCutoff(MOD_InterviewData$Observed.AttendanceOI, MOD_InterviewData$prediction)[1] 
+
+plotROC(MOD_InterviewData$Observed.AttendanceOI, MOD_InterviewData$prediction)
+confusionMatrix(MOD_InterviewData$Observed.AttendanceOI, MOD_InterviewData$prediction, threshold = optCutOff)
+
+
+
+
 
 colnames(InterviewData)
 
